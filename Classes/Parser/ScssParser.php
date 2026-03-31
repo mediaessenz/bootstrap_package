@@ -88,10 +88,10 @@ class ScssParser extends AbstractParser
     protected function parseFile(string $file, array $settings): array
     {
         $scss = new Compiler();
-        $scss->setOutputStyle(OutputStyle::COMPRESSED);
+        $this->setOutputStyleCompatible($scss, 'compressed');
         $scss->addVariables($settings['variables']);
         if ($settings['options']['sourceMap']) {
-            $scss->setSourceMap(Compiler::SOURCE_MAP_FILE);
+            $this->setSourceMapCompatible($scss);
             $scss->setSourceMapOptions([
                 'sourceMapRootpath' => $settings['cache']['tempDirectoryRelativeToRoot'],
                 'sourceMapBasepath' => Environment::getProjectPath(),
@@ -181,5 +181,39 @@ class ScssParser extends AbstractParser
                 'sourceMap' => $settings['options']['sourceMap'],
             ],
         ];
+    }
+
+    /**
+     * scssphp 1.x and 2.x compatible output style setter.
+     */
+    private function setOutputStyleCompatible(Compiler $scss, string $style): void
+    {
+        if (method_exists(OutputStyle::class, 'fromString')) {
+            $scss->setOutputStyle(OutputStyle::fromString($style));
+            return;
+        }
+
+        $constant = 'ScssPhp\\ScssPhp\\OutputStyle::' . strtoupper($style);
+        if (defined($constant)) {
+            $scss->setOutputStyle(constant($constant));
+            return;
+        }
+
+        throw new \RuntimeException('Unsupported scssphp OutputStyle: ' . $style);
+    }
+
+    /**
+     * scssphp 1.x and 2.x compatible source map activation.
+     */
+    private function setSourceMapCompatible(Compiler $scss): void
+    {
+        if (defined(Compiler::class . '::SOURCE_MAP_INLINE')) {
+            $scss->setSourceMap(Compiler::SOURCE_MAP_INLINE);
+            return;
+        }
+
+        if (method_exists($scss, 'setSourceMap')) {
+            $scss->setSourceMap(true);
+        }
     }
 }
